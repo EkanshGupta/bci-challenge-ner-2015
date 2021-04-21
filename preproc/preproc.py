@@ -16,7 +16,7 @@ def bandpass(sig,band,fs):
     B,A = butter(5, array(band)/(fs/2), btype='bandpass')
     return lfilter(B, A, sig, axis=0)
 
-for test in [False,True] : 
+for test in [False,True] :
 
     prefix = '' if test is False else 'test_'
     DataFolder = '../data/train/' if test is False else '../data/test/'
@@ -24,12 +24,12 @@ for test in [False,True] :
     list_of_files.sort()
 
     reg = re.compile('\d+')
-    
+
 
 
     freq = 200.0
 
-    epoc_window = 1.3*freq
+    epoc_window = int(1.3*freq)
 
     X = []
     User = []
@@ -43,7 +43,7 @@ for test in [False,True] :
     WordTot = []
 
     for f in list_of_files:
-        print f
+        print(f)
         user,session = reg.findall(f)
         sig = np.array(pd.io.parsers.read_csv(f))
 
@@ -52,10 +52,10 @@ for test in [False,True] :
         Trigger = sig[:,-1]
 
         sigF = bandpass(EEG,[1.0,40.0],freq)
-    
-    
+
+
         idxFeedBack = np.where(Trigger==1)[0]
-    
+
         for fbkNum,idx in enumerate(idxFeedBack):
             X.append(sigF[idx:idx+epoc_window,:])
             User.append(int(user))
@@ -66,9 +66,9 @@ for test in [False,True] :
             Word.append(floor(fbkNum/5)+1)
             FeedbackTot.append(fbkNum + (int(session)-1)*60)
             WordTot.append(floor(fbkNum/5)+1 + (int(session)-1)*12)
-	
+
     Meta = array([Session,Feedback,Letter,Word,FeedbackTot,WordTot]).transpose()
-    
+
     Meta2 = pd.read_csv('metadata.csv')
     currentUserSet = [True if val in set(User) else False for val in Meta2.subject]
 
@@ -91,5 +91,3 @@ for test in [False,True] :
     save(prefix + 'epochs.npy',X)
     save(prefix + 'meta.npy',Meta)
     save(prefix + 'meta_leak.npy',Meta_Leak)
-
-

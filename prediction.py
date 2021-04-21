@@ -18,38 +18,38 @@ from functools import partial
 def from_yaml_to_func(method,params):
     prm = dict()
     if params!=None:
-        for key,val in params.iteritems():
+        for key,val in params.items():
             prm[key] = eval(str(val))
     return eval(method)(**prm)
 
 
 def BaggingFunc(bag,Labels,X,Meta,User,X_test,Meta_test,User_test):
     bagUsers = np.array([True if u in set(bag) else False for u in User])
-    train_index = np.negative(bagUsers)
+    train_index = ~bagUsers
     updateMeta(clf,Meta[train_index])
     clf.fit(X[train_index,:,:],Labels[train_index])
-    
+
     ### predicting
     prob = []
     for ut in users_test:
         updateMeta(clf,Meta_test[User_test==ut,...])
         prob.extend(clf.predict(X_test[User_test==ut,...]))
     prob = np.array(prob)
-    
+
     return prob
 
 # load parameters file
 yml = yaml.load(open(sys.argv[1]))
 
-# imports 
-for pkg, functions in yml['imports'].iteritems():
+# imports
+for pkg, functions in yml['imports'].items():
     stri = 'from ' + pkg + ' import ' + ','.join(functions)
     exec(stri)
 
 # parse pipe function from parameters
 pipe = []
 for item in yml['pipeline']:
-    for method,params in item.iteritems():
+    for method,params in item.items():
         pipe.append(from_yaml_to_func(method,params))
 
 # create pipeline
@@ -64,19 +64,19 @@ cores = yml['Submission']['cores']
 X = np.load('./preproc/epochs.npy')
 Labels,User = np.load('./preproc/infos.npy')
 users = np.unique(User)
-Meta = np.load('./preproc/meta_leak.npy') if opts.has_key('leak') else np.load('./preproc/meta.npy')
+Meta = np.load('./preproc/meta_leak.npy') if 'leak' in opts else np.load('./preproc/meta.npy')
 
 X_test = np.load('./preproc/test_epochs.npy')
 feedbackid,User_test = np.load('./preproc/test_infos.npy')
 User_test = np.array(map(int, User_test))
 users_test = np.unique(User_test)
-Meta_test = np.load('./preproc/test_meta_leak.npy') if opts.has_key('leak') else np.load('./preproc/test_meta.npy')
+Meta_test = np.load('./preproc/test_meta_leak.npy') if 'leak' in opts else np.load('./preproc/test_meta.npy')
 
 ### training
 np.random.seed(5)
-allProb = 0 
+allProb = 0
 
-if opts.has_key('bagging'):
+if 'bagging' in opts:
     bagging = baggingIterator(opts,users)
 else:
     bagging = [[-1]]
@@ -88,11 +88,19 @@ allProb = pool.map(pBaggingFunc,bagging,chunksize=1)
 allProb = np.vstack(allProb)
 allProb = np.mean(allProb,axis=0)
 
-if opts.has_key('leak'):
+if 'leak' in opts:
     allProb += opts['leak']['coeff']*(1-Meta_test[:,-1])
 
-print "Done in " + str(time()-t) + " second"
+print("Done in " + str(time()-t) + " second")
 
 submission = yml['Submission']['path']
 df = pd.DataFrame({'IdFeedBack':feedbackid,'Prediction':allProb})
 df.to_csv(submission,index=False)
+
+final_preds = np.rint(allProb)
+
+Labels = np.genfromtxt('data/true_labels.csv',skip_header=0)
+
+corr = np.sum(final_preds==Labels)
+print(corr)
+print(float(corr)/float(Labels.shape[0]))
