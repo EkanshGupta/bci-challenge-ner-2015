@@ -18,13 +18,13 @@ CrossVal:
 
 Submission:
   path: submission-noLeak.csv
-  cores: 8
+  cores: 4
 
 MetaPipeline:
   #leak:
   bagging:
      bag_size: 0.51 # % of subjects to train on in each bagged model. If bag_size==1 then LOSO bagging is performed
-     models: 2 # ignored for LOSO bagging
+     models: 1 # ignored for LOSO bagging
 
 pipeline:
   - XdawnCovariances:

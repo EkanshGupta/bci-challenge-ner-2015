@@ -30,60 +30,60 @@ def makeCV(kfolds,X,Labels,User,Meta,clf,opts):
     toPredData=[]
     Gauc = []
     for train_users,test_users in kfolds[1]:
-        allProb = 0 
+        allProb = 0
         test_index = np.array([True if u in set(users[test_users]) else False for u in User])
 
-        if opts.has_key('bagging'):
+        if 'bagging' in opts:
             bagging = baggingIterator(opts,[users[i] for i in train_users])
         else:
             bagging = [[-1]]
-        
+
         for bag in bagging:
             bagUsers = np.array([True if u in set(bag) else False for u in User])
             train_index = np.logical_xor(np.negative(test_index), bagUsers)
-            
+
             try:
                 # train
                 updateMeta(clf,Meta[train_index])
                 clf.fit(X[train_index,:,:],Labels[train_index])
-                
+
                 # predict
                 prob = []
                 for ut in np.unique(users[test_users]):
                     updateMeta(clf,Meta[User==ut,...])
                     prob.extend(clf.predict(X[User==ut,...]))
                 prob = np.array(prob)
-                
+
                 allProb += prob/len(bagging)
             except:
                 print kfolds[0]
                 print [users[i] for i in train_users]
                 print bag
                 continue
-        
+
         # save & return
         predictions = OrderedDict()
         predictions['user']=User[test_index]
         predictions['label'] = Labels[test_index]
         predictions['prediction']=allProb
-        if opts.has_key('leak'):
+        if 'leak' in opts:
              predictions['prediction'] += opts['leak']['coeff']*(1-Meta[test_index,-1])
         predictions = pd.DataFrame(predictions)
-        
+
         Gauc.append(roc_auc_score(predictions.label,predictions.prediction))
         toPredData.append(predictions)
     predData = pd.concat(toPredData)
-    
+
     Sauc = [roc_auc_score(predData.loc[predData.user==i].label,predData.loc[predData.user==i].prediction) for i in np.unique(predData.user)]
-    
-    print 'Rep %d: gAUC (mean of folds) %0.5f, sAUC %0.5f (%0.5f)' % (kfolds[0],np.mean(Gauc),np.mean(Sauc),np.std(Sauc)) 
-    
+
+    print 'Rep %d: gAUC (mean of folds) %0.5f, sAUC %0.5f (%0.5f)' % (kfolds[0],np.mean(Gauc),np.mean(Sauc),np.std(Sauc))
+
     return [Gauc,Sauc]
-    
+
 # load parameters file
 yml = yaml.load(open(sys.argv[1]))
 
-# imports 
+# imports
 for pkg, functions in yml['imports'].iteritems():
     stri = 'from ' + pkg + ' import ' + ','.join(functions)
     exec(stri)
@@ -102,7 +102,7 @@ if opts is None:
 # load files
 X = np.load('./preproc/epochs.npy')
 Labels,User = np.load('./preproc/infos.npy')
-Meta = np.load('./preproc/meta_leak.npy') if opts.has_key('leak') else np.load('./preproc/meta.npy')
+Meta = np.load('./preproc/meta_leak.npy') if 'leak' in opts else np.load('./preproc/meta.npy')
 users=np.unique(User)
 
 
@@ -142,9 +142,8 @@ if not os.path.isfile(path):
     fd.write('comment;folds;reps;gAUC mean;gAUC std;sAUC mean;sAUC std;user'+ ";user".join(map(str,map(int,users))) + ';leak;bagging;pipeline\n')
     fd.close()
 fd = open(path,'a')
-leakStr = 'on' if opts.has_key('leak') else 'off'
-bagStr = '-'.join([str(opts['bagging']['bag_size']),str(opts['bagging']['models'])]) if opts.has_key('bagging') else 'off'
+leakStr = 'on' if 'leak' in opts else 'off'
+bagStr = '-'.join([str(opts['bagging']['bag_size']),str(opts['bagging']['models'])]) if 'bagging' in opts else 'off'
 toWrite = [comment] + map(str,[folds,repetitions,np.mean(gAUC),np.std(gAUC),np.mean(sAUC),np.std(sAUC)]) + [str(i) for i in indAUC] + [leakStr,bagStr] + pipelineSteps
 fd.write(';'.join(toWrite) + '\n')
 fd.close()
-

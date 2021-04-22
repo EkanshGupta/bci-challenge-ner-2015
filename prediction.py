@@ -39,7 +39,7 @@ def BaggingFunc(bag,Labels,X,Meta,User,X_test,Meta_test,User_test):
     return prob
 
 # load parameters file
-yml = yaml.load(open(sys.argv[1]))
+yml = yaml.load(open(sys.argv[1]), yaml.SafeLoader)
 
 # imports
 for pkg, functions in yml['imports'].items():
